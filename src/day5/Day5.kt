@@ -90,21 +90,39 @@ fun main() {
         Rule(parts[0].toInt(), parts[1].toInt())
     }
 
-    var sum = 0
+    var sum1 = 0
+    var sum2 = 0
     for (updateString in updateStrings) {
-        val result = checkUpdate(updateString, rules)
+        val pages = updateString.split(",").map { it.toInt() }
+        val appliedRules = rules.filter { rule -> pages.contains(rule.start) && pages.contains(rule.target) }
+        val matrix = createAdjacencyMatrix(appliedRules)
+
+        val result = checkUpdate(pages, matrix)
         if (result != -1) {
-            sum += result
+            sum1 += result
+        } else {
+            println(pages)
+            val sortedPages = pages.sortedWith { a, b ->
+                if (a == b) {
+                    0
+                } else if (a.isLeftOf(b, matrix)) {
+                    1
+                } else {
+                    -1
+                }
+            }
+            println(pages)
+            sum2 += sortedPages[sortedPages.size / 2]
         }
+
     }
-    println("Part1: $sum")
+    println("Part1: $sum1")
+    println("Part2: $sum2")
+
+
 }
 
-fun checkUpdate(update: String, rules: List<Rule>): Int {
-    val pages = update.split(",").map { it.toInt() }
-    val appliedRules = rules.filter { rule -> pages.contains(rule.start) && pages.contains(rule.target) }
-    val matrix = createAdjacencyMatrix(appliedRules)
-
+fun checkUpdate(pages: List<Int>, matrix: AdjacencyMatrix): Int {
     for (i in 0..pages.size-2) {
         val pagesBeforeInUpdate = pages.subList(0, i).sorted()
         val pagesAfterInUpdate = pages.subList(i+1, pages.size).sorted()
@@ -112,24 +130,21 @@ fun checkUpdate(update: String, rules: List<Rule>): Int {
         println("PagesBeforeInUpdate: $pagesBeforeInUpdate")
         println("PagesAfterInUpdate:  $pagesAfterInUpdate")
 
-
         val pagesBeforeInRules = matrix.getPagesBefore(pages[i])
         val pagesAfterInRules = matrix.getPagesAfter(pages[i])
 
         println("PagesBeforeInRules: $pagesBeforeInRules")
         println("PagesAfterInRules: $pagesAfterInRules")
 
-
         if (
             isIntersecting(pagesBeforeInUpdate, pagesAfterInRules) ||
             isIntersecting(pagesAfterInUpdate, pagesBeforeInRules)
         ) {
-            println("Not valid: $update")
+            println("Not valid: $pages")
             return -1
         }
-
     }
-    println("Valid: $update")
+    println("Valid: $pages")
     return pages[pages.size / 2]
 }
 
@@ -144,7 +159,7 @@ fun <T: Any> isIntersecting(leftList: List<T>, rightList: List<T>): Boolean {
 
     for (leftItem in leftList) {
         for (rightItem in rightList) {
-            if (leftItem.equals(rightItem)) {
+            if (leftItem == rightItem) {
                 return true
             }
         }
@@ -177,3 +192,5 @@ fun extractParts(lines: List<String>): Pair<List<String>, List<String>> {
     }
     return ruleStrings to updateStrings
 }
+
+fun Int.isLeftOf(other: Int, matrix: AdjacencyMatrix) = matrix.getPagesAfter(other).contains(this)
