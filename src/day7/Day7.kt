@@ -31,7 +31,6 @@ fun eval(equation: String, possibleOperators: List<Char>): Long {
     } else {
         return 0
     }
-
 }
 
 fun testOperatorRecursive(expectedResult: Long, values: List<Long>, operators: List<Char>, possibleOperators: List<Char>): Boolean {
@@ -55,6 +54,5 @@ fun testOperatorRecursive(expectedResult: Long, values: List<Long>, operators: L
         }
         return (expectedResult == result)
     }
-
 }
 
