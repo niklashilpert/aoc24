@@ -5,55 +5,76 @@ import java.awt.Point
 import java.io.File
 
 operator fun Point.plus(dir: Direction) = Point(x + dir.x, y + dir.y)
+operator fun Point.minus(dir: Direction) = Point(x - dir.x, y - dir.y)
 
 class Map(private val rows: List<CharArray>) {
-    private val bounds = getDimension()
-    private val obstacles = getObstacles()
-    private var guardPos = getGuardPosition()
-    private var direction = Direction.UP
+    private val dimension = readDimension()
+    val obstacles = readObstacles()
+    val initialGuardPosition = readGuardPosition()
+    val initialDirection = Direction.UP
 
-    init {
-        this[guardPos.x, guardPos.y] = direction.char
+    private fun createStepsMap(): HashMap<Direction, MutableList<Point>> {
+        return hashMapOf<Direction, MutableList<Point>>().also {
+            Direction.entries.forEach { entry ->
+                it[entry] = mutableListOf()
+            }
+        }
     }
 
-    fun countOccurrences(vararg chars: Char): Int {
-        return rows.fold(0) { acc: Int, row: CharArray ->
-            acc + row.fold(0) { rowAcc: Int, c: Char ->
-                if (c in chars) {
-                    rowAcc + 1
-                } else {
-                    rowAcc
+    fun countPossibleLoops(): Int {
+        var loopCount = 0
+        val positions = getVisitedCellsUntilMapExit(initialGuardPosition, initialDirection, obstacles)!!.distinct()
+        for (position in positions) {
+                val stepsUntilMapExit = getVisitedCellsUntilMapExit(
+                    initialGuardPosition,
+                    initialDirection,
+                    obstacles + position
+                )
+                if (stepsUntilMapExit == null) {
+                    loopCount += 1
                 }
-            }
         }
+        return loopCount
     }
 
-    fun step(): Boolean {
-        val potentialNextPos = guardPos + direction
-        if (potentialNextPos.x !in 0..<bounds.width || potentialNextPos.y !in 0..<bounds.height) {
-            return false
-        } else {
-            if (obstacles.contains(potentialNextPos)) {
-                direction = direction.rotated()
+    fun getVisitedCellsUntilMapExit(startPosition: Point, startDirection: Direction, obstacles: Set<Point>): Set<Point>? {
+        val stepsMap = createStepsMap()
+        var currentPosition = startPosition
+        var currentDirection = startDirection
+        val pointList = mutableSetOf<Point>()
+        while(isInMap(currentPosition)) {
+            val nextPosition = currentPosition + currentDirection
+            val positionWasVisitedTwice =  stepsMap[currentDirection]!!.contains(nextPosition)
+            if (positionWasVisitedTwice) {
+                return null
+            }
+            if (nextPosition in obstacles) {
+                currentDirection = currentDirection.rotatedRight()
             } else {
-                guardPos += direction
-                this[guardPos.x, guardPos.y] = direction.char
+                pointList += currentPosition
+                currentPosition += currentDirection
             }
-            return true
+
+            stepsMap[currentDirection]!!.add(currentPosition)
+
         }
+        return pointList
     }
 
+    private fun isInMap(position: Point): Boolean {
+        return position.x in 0..<dimension.width && position.y in 0..<dimension.height
+    }
+
+    operator fun get(pos: Point) = this[pos.x, pos.y]
     operator fun get(x: Int, y: Int) = rows[y][x]
-    operator fun set(x: Int, y: Int, value: Char) {
-        rows[y][x] = value
-    }
+    operator fun set(pos: Point, value: Char) { this[pos.x, pos.y] = value }
+    operator fun set(x: Int, y: Int, value: Char) { rows[y][x] = value }
 
-
-    private fun getDimension(): Dimension {
+    private fun readDimension(): Dimension {
         return Dimension(rows[0].size, rows.size)
     }
 
-    private fun getGuardPosition(): Point {
+    private fun readGuardPosition(): Point {
         rows.forEachIndexed { y, row ->
             row.forEachIndexed { x, char ->
                 if (char == '^') {
@@ -64,8 +85,8 @@ class Map(private val rows: List<CharArray>) {
         return Point(-1, -1)
     }
 
-    private fun getObstacles(): List<Point> {
-        val obstacles = ArrayList<Point>()
+    private fun readObstacles(): Set<Point> {
+        val obstacles = mutableSetOf<Point>()
         rows.forEachIndexed { y, row ->
             row.forEachIndexed { x, char ->
                 if (char == '#') {
@@ -77,13 +98,13 @@ class Map(private val rows: List<CharArray>) {
     }
 }
 
-enum class Direction(val x: Int, val y: Int, val char: Char) {
-    UP(0, -1, 'U'),
-    LEFT(-1, 0, 'L'),
-    DOWN(0, 1, 'D'),
-    RIGHT(1, 0, 'R');
+enum class Direction(val x: Int, val y: Int) {
+    UP(0, -1),
+    LEFT(-1, 0),
+    DOWN(0, 1),
+    RIGHT(1, 0);
 
-    fun rotated(): Direction {
+    fun rotatedRight(): Direction {
         return if (this == UP) {
             RIGHT
         } else if (this == RIGHT) {
@@ -97,16 +118,12 @@ enum class Direction(val x: Int, val y: Int, val char: Char) {
 }
 
 fun main() {
-    val input = readInput()
-    val map = Map(input.map { it.toCharArray() })
+    val map = Map(readInput().map { it.toCharArray() })
 
-    var keepLooping: Boolean
-    do {
-        keepLooping = map.step()
-    } while(keepLooping)
-
-    val xCount = map.countOccurrences(*Direction.entries.map { it.char }.toCharArray())
-    println(xCount)
+    val visitedCells = map.getVisitedCellsUntilMapExit(map.initialGuardPosition, map.initialDirection, map.obstacles)!!.size
+    println(visitedCells)
+    val loopCount = map.countPossibleLoops()
+    println(loopCount)
 }
 
 fun readInput(): List<String> {
